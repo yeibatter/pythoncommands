@@ -1,0 +1,104 @@
+# GitHub Actions Workflow - Pipeline de Generación de Festivos en Colombia
+# Este workflow genera un archivo de texto con todos los festivos del año en curso
+# Se ejecuta automáticamente en cambios en la rama main
+ 
+name: Festivos Colombia Pipeline
+ 
+# Trigger: Se ejecuta cuando hay push en la rama main
+on:
+  push:
+    branches:
+      - main
+ 
+# Definición del job del pipeline
+jobs:
+  # Job: Generar y mostrar festivos de Colombia
+  festivos:
+    # Especifica el entorno de ejecución
+    runs-on: ubuntu-latest
+    steps:
+      # Paso 1: Checkout del código fuente
+      - name: Checkout código
+        uses: actions/checkout@v4
+ 
+      # Paso 2: Configurar Node.js con versión 18.x
+      # Esta es la versión especificada para el proyecto
+      - name: Configurar Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+ 
+      # Paso 3: Generar archivo con festivos de Colombia
+      # Este paso crea un archivo de texto con todos los festivos del año en curso
+      - name: Generar archivo de festivos de Colombia
+        run: |
+          node -e "
+          const fs = require('fs');
+          const year = new Date().getFullYear();
+          // Festivos fijos de Colombia
+          const festivosFijos = [
+            { fecha: '01-01', nombre: 'Año Nuevo' },
+            { fecha: '05-01', nombre: 'Día del Trabajo' },
+            { fecha: '07-01', nombre: 'Día de Independencia' },
+            { fecha: '08-07', nombre: 'Batalla de Boyacá' },
+            { fecha: '12-08', nombre: 'Inmaculada Concepción' },
+            { fecha: '12-25', nombre: 'Navidad' }
+          ];
+          // Calcular Semana Santa (Pascua)
+          function calcularPascua(year) {
+            const a = year % 19;
+            const b = Math.floor(year / 100);
+            const c = year % 100;
+            const d = Math.floor(b / 4);
+            const e = b % 4;
+            const f = Math.floor((b + 8) / 25);
+            const g = Math.floor((b - f + 1) / 3);
+            const h = (19 * a + b - d - g + 15) % 30;
+            const i = Math.floor(c / 4);
+            const k = c % 4;
+            const l = (32 + 2 * e + 2 * i - h - k) % 7;
+            const m = Math.floor((a + 11 * h + 22 * l) / 451);
+            const mes = Math.floor((h + l - 7 * m + 114) / 31);
+            const dia = ((h + l - 7 * m + 114) % 31) + 1;
+            return new Date(year, mes - 1, dia);
+          }
+          const pascua = calcularPascua(year);
+          // Festivos móviles basados en Pascua
+          const festivosMoviles = [
+            { nombre: 'Viernes Santo', diasAntesDeAnio: -2, fecha: new Date(pascua.getTime() - 2 * 24 * 60 * 60 * 1000) },
+            { nombre: 'Lunes de Pascua', diasAntesDeAnio: 1, fecha: new Date(pascua.getTime() + 1 * 24 * 60 * 60 * 1000) },
+            { nombre: 'Ascensión del Señor', diasAntesDeAnio: 39, fecha: new Date(pascua.getTime() + 39 * 24 * 60 * 60 * 1000) },
+            { nombre: 'Corpus Christi', diasAntesDeAnio: 60, fecha: new Date(pascua.getTime() + 60 * 24 * 60 * 60 * 1000) },
+            { nombre: 'Sagrado Corazón', diasAntesDeAnio: 68, fecha: new Date(pascua.getTime() + 68 * 24 * 60 * 60 * 1000) }
+          ];
+          // Combinar todos los festivos
+          const todosFestivos = [
+            ...festivosFijos.map(f => ({
+              ...f,
+              fecha: new Date(year, parseInt(f.fecha.split('-')[0]) - 1, parseInt(f.fecha.split('-')[1]))
+            })),
+            ...festivosMoviles
+          ];
+          // Ordenar por fecha
+          todosFestivos.sort((a, b) => a.fecha - b.fecha);
+          // Crear contenido del archivo
+          let contenido = \`FESTIVOS DE COLOMBIA - AÑO \${year}\n\`;
+          contenido += '='.repeat(50) + '\n\n';
+          todosFestivos.forEach((f, idx) => {
+            const fecha = f.fecha.toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            contenido += \`\${idx + 1}. \${f.nombre}\n   Fecha: \${fecha}\n\n\`;
+          });
+          // Guardar archivo
+          fs.writeFileSync(\`festivos-colombia-\${year}.txt\`, contenido);
+          console.log('✅ Archivo de festivos generado exitosamente');
+          "
+ 
+      # Paso 4: Imprimir todos los festivos del año
+      # Este paso muestra en pantalla todos los festivos calculados
+      - name: Mostrar festivos de Colombia del año en curso
+        run: |
+          echo "🇨🇴 ===== FESTIVOS DE COLOMBIA ====="
+          echo ""
+          cat festivos-colombia-*.txt
+          echo ""
+          echo "===================================="
